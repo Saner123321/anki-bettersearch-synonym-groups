@@ -2,10 +2,12 @@ import logging
 import sys
 import unicodedata
 
+from anki import lang as anki_lang
 from aqt import gui_hooks, mw
 from aqt.qt import (
     QAbstractItemView,
     QCheckBox,
+    QComboBox,
     QDialog,
     QDialogButtonBox,
     QHBoxLayout,
@@ -22,6 +24,7 @@ from aqt.qt import (
 from aqt.utils import showWarning
 
 from . import highlights
+from .i18n import LANGUAGE_CHOICES, WordlistError, resolve_language, translate
 from .rules import ALIAS_SEPARATOR, build_rules, clean_term, group_rows, split_suffixes
 from .search import expand_search
 from .wordlist_sync import decode_groups, read_wordlist, wordlist_path, write_wordlist
@@ -43,6 +46,10 @@ class RuleFilter(QLineEdit):
 
 def config():
     return mw.addonManager.getConfig(__name__) or {}
+
+
+def language_for(settings):
+    return resolve_language(settings.get("language", "auto"), anki_lang.current_lang)
 
 
 def activate_groups(groups, replacement_rules):
@@ -108,62 +115,60 @@ def connect_to_bettersearch():
 def add_browser_menu(browser):
     for action in browser.menuBar().actions():
         if action.text().replace("&", "") == "BetterSearch" and action.menu():
-            action.menu().addAction("同义词词表…", lambda: edit_groups(browser))
+            menu = action.menu()
+            entry = menu.addAction(translate(language_for(config()), "menu"), lambda: edit_groups(browser))
+            menu.aboutToShow.connect(lambda: entry.setText(translate(language_for(config()), "menu")))
             break
 
 
 def edit_groups(parent=None):
+    current_config = config()
+    language = language_for(current_config)
+
+    def tr(key, **values):
+        return translate(language, key, **values)
+
     if BETTERSEARCH_MODULE not in sys.modules:
-        showWarning("请启用新版 BetterSearch（1052724801），然后重启 Anki。", parent=parent)
+        showWarning(tr("require_bettersearch"), parent=parent)
         return
 
-    current_config = config()
     collection = getattr(mw, "col", None)
     sync_path = wordlist_path(collection)
     try:
         synced = read_wordlist(sync_path)
         current_groups = decode_groups(synced) if synced is not None else current_config.get("groups", [])
     except (OSError, ValueError):
-        showWarning("无法读取已同步的词表。请确认媒体同步已完成，再打开词表。", parent=parent)
+        showWarning(tr("read_failed"), parent=parent)
         return
 
     dialog = QDialog(parent or mw)
-    dialog.setWindowTitle("BetterSearch 同义词词表")
     dialog.resize(760, 360)
     layout = QVBoxLayout(dialog)
 
     search_bar = QHBoxLayout()
     rule_filter = RuleFilter(dialog)
-    rule_filter.setPlaceholderText("搜索词表（同义词或后缀）")
     rule_filter.setClearButtonEnabled(True)
     search_bar.addWidget(rule_filter, 1)
     result_count = QLabel(dialog)
     search_bar.addWidget(result_count)
     layout.addLayout(search_bar)
 
-    help_text = QLabel(
-        "每行一组，用 / 分隔。搜索任意写法即可。勾选后，三个汉字及以上的词允许其中一个汉字写错。"
-    )
+    help_text = QLabel(dialog)
     help_text.setWordWrap(True)
     layout.addWidget(help_text)
 
-    allow_all_typos = QCheckBox("全部允许错一字", dialog)
+    allow_all_typos = QCheckBox(dialog)
     allow_all_typos.setTristate(True)
-    allow_all_typos.setToolTip("作用于整个词表，包括搜索时隐藏的规则。")
     layout.addWidget(allow_all_typos)
 
-    enable_sync = QCheckBox("随 Anki 同步词表", dialog)
-    enable_sync.setToolTip("勾选并保存后，词表会随当前资料的 Anki 媒体同步。")
-    if synced is not None:
-        layout.addWidget(QLabel("词表随 Anki 媒体同步", dialog))
-    elif sync_path is not None:
-        layout.addWidget(enable_sync)
+    enable_sync = QCheckBox(dialog)
+    sync_status = QLabel(dialog)
+    layout.addWidget(enable_sync)
+    layout.addWidget(sync_status)
+    enable_sync.setVisible(synced is None and sync_path is not None)
+    sync_status.setVisible(synced is not None)
 
     table = QTableWidget(0, 3, dialog)
-    table.setHorizontalHeaderLabels(["同义词", "可省略的后缀", "允许错一字"])
-    table.horizontalHeaderItem(1).setToolTip(
-        "多个后缀用 / 分隔。例如填「块 / 型」，输入「约当」、「约当块」或「约当型」都能触发。"
-    )
     table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
     header = table.horizontalHeader()
     header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
@@ -187,7 +192,7 @@ def edit_groups(parent=None):
                 visible = query in aliases or any(query in term for term in (*suffixes, *full_terms))
             table.setRowHidden(row, not visible)
             visible_count += visible
-        result_count.setText(f"显示 {visible_count} / {table.rowCount()} 组")
+        result_count.setText(tr("count", visible=visible_count, total=table.rowCount()))
 
     def on_filter_changed():
         table.clearSelection()
@@ -234,7 +239,6 @@ def edit_groups(parent=None):
 
     for row in group_rows(current_groups):
         append_row(*row)
-    update_filter()
     update_bulk_state()
     rule_filter.textChanged.connect(on_filter_changed)
     allow_all_typos.clicked.connect(set_all_typos)
@@ -270,30 +274,44 @@ def edit_groups(parent=None):
         try:
             groups, updated_rules = build_rules(rows)
             if wordlist_path(getattr(mw, "col", None)) != sync_path:
-                raise ValueError("Anki 资料已切换。请重新打开词表。")
+                raise WordlistError("profile_changed")
             if sync_path is not None and (synced is not None or enable_sync.isChecked()):
                 write_wordlist(collection, groups, synced)
             else:
                 if read_wordlist(sync_path) is not None:
-                    raise ValueError("词表在编辑期间已同步更新。请退出后重新打开词表。")
-                current_config["groups"] = groups
-                mw.addonManager.writeConfig(__name__, current_config)
-        except (OSError, ValueError) as error:
-            showWarning(str(error), parent=dialog)
+                    raise WordlistError("wordlist_changed")
+                updated_config = config()
+                updated_config["groups"] = groups
+                mw.addonManager.writeConfig(__name__, updated_config)
+        except WordlistError as error:
+            showWarning(error.localized(language), parent=dialog)
+            return
+        except (OSError, ValueError):
+            logger.warning("Could not save the synonym word list")
+            showWarning(tr("save_failed"), parent=dialog)
             return
         activate_groups(groups, updated_rules)
         dialog.accept()
 
     actions = QHBoxLayout()
-    add = QPushButton("添加一组")
+    add = QPushButton(dialog)
     add.clicked.connect(add_row)
     add.setAutoDefault(False)
     actions.addWidget(add)
-    remove = QPushButton("删除选中组")
+    remove = QPushButton(dialog)
     remove.clicked.connect(remove_rows)
     remove.setAutoDefault(False)
     actions.addWidget(remove)
     actions.addStretch()
+
+    language_label = QLabel(dialog)
+    language_choice = QComboBox(dialog)
+    for code, label in LANGUAGE_CHOICES:
+        language_choice.addItem(label, code)
+    language_choice.setCurrentIndex(max(0, language_choice.findData(current_config.get("language", "auto"))))
+    language_label.setBuddy(language_choice)
+    actions.addWidget(language_label)
+    actions.addWidget(language_choice)
     layout.addLayout(actions)
 
     buttons = QDialogButtonBox(
@@ -302,6 +320,43 @@ def edit_groups(parent=None):
     buttons.accepted.connect(save)
     buttons.rejected.connect(dialog.reject)
     layout.addWidget(buttons)
+
+    def retranslate():
+        dialog.setWindowTitle(tr("title"))
+        rule_filter.setPlaceholderText(tr("search"))
+        help_text.setText(tr("help"))
+        allow_all_typos.setText(tr("bulk_typos"))
+        allow_all_typos.setToolTip(tr("bulk_tip"))
+        enable_sync.setText(tr("sync"))
+        enable_sync.setToolTip(tr("sync_tip"))
+        sync_status.setText(tr("sync_enabled"))
+        table.setHorizontalHeaderLabels([tr("synonyms"), tr("suffixes"), tr("typos")])
+        table.horizontalHeaderItem(1).setToolTip(tr("suffix_tip"))
+        add.setText(tr("add"))
+        remove.setText(tr("remove"))
+        language_label.setText(tr("ui_language"))
+        language_choice.setAccessibleName(tr("ui_language"))
+        buttons.button(QDialogButtonBox.StandardButton.Save).setText(tr("save"))
+        buttons.button(QDialogButtonBox.StandardButton.Cancel).setText(tr("cancel"))
+        update_filter()
+
+    def change_language():
+        nonlocal language
+        prefs = config()
+        previous = prefs.get("language", "auto")
+        prefs["language"] = language_choice.currentData()
+        try:
+            mw.addonManager.writeConfig(__name__, prefs)
+        except OSError:
+            with QSignalBlocker(language_choice):
+                language_choice.setCurrentIndex(max(0, language_choice.findData(previous)))
+            showWarning(tr("language_save_failed"), parent=dialog)
+            return
+        language = language_for(prefs)
+        retranslate()
+
+    language_choice.currentIndexChanged.connect(change_language)
+    retranslate()
     rule_filter.setFocus()
     dialog.exec()
 

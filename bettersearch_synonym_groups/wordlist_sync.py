@@ -2,6 +2,8 @@ import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+from .i18n import WordlistError
+
 
 FILENAME = "_bettersearch_synonym_groups.json"
 
@@ -46,11 +48,11 @@ def decode_groups(data):
 def write_wordlist(col, groups, previous):
     path = wordlist_path(col)
     if read_wordlist(path) != previous:
-        raise ValueError("词表在编辑期间已同步更新。请退出后重新打开词表，再编辑最新内容。")
+        raise WordlistError("wordlist_changed")
     if previous is not None and decode_groups(previous) == groups:
         return
     if col.media_sync_status().active:
-        raise ValueError("媒体正在同步。请等待同步完成后再保存词表。")
+        raise WordlistError("sync_busy")
 
     data = json.dumps({"version": 1, "groups": groups}, ensure_ascii=False, indent=2)
     payload = (data + "\n").encode("utf-8")
@@ -58,7 +60,7 @@ def write_wordlist(col, groups, previous):
         staged = Path(folder) / path.name
         staged.write_bytes(payload)
         if read_wordlist(path) != previous:
-            raise ValueError("词表在编辑期间已同步更新。请退出后重新打开词表，再编辑最新内容。")
+            raise WordlistError("wordlist_changed")
         staged.replace(path)
         try:
             # Register the new checksum explicitly. Anki's filesystem scan can
@@ -71,4 +73,4 @@ def write_wordlist(col, groups, previous):
                 else:
                     staged.write_bytes(previous)
                     staged.replace(path)
-            raise OSError("Anki 未能登记词表用于媒体同步，请重试保存。") from error
+            raise WordlistError("register_failed") from error

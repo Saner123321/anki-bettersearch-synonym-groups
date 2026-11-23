@@ -1,6 +1,8 @@
 import re
 import unicodedata
 
+from .i18n import WordlistError
+
 
 ALIAS_SEPARATOR = re.compile(r"[/／]")
 
@@ -58,16 +60,16 @@ def build_rules(rows):
         aliases = [clean_term(term) for term in ALIAS_SEPARATOR.split(alias_text)]
         suffixes = split_suffixes(suffix_text)
         if len(set(alias.casefold() for alias in aliases)) < 2:
-            raise ValueError(f"第 {number} 行至少需要两个不同的写法，用 / 分隔。")
+            raise WordlistError("need_aliases", row=number)
         if not all(valid_term(term) for term in aliases + suffixes):
-            raise ValueError(f"第 {number} 行请使用文字、数字和空格。不同写法之间用 / 分隔。")
+            raise WordlistError("invalid_term", row=number)
         aliases = list(dict.fromkeys(aliases))
         query = build_query(aliases, fuzzy)
         triggers = {alias.casefold() for alias in aliases}
         triggers.update((alias + suffix).casefold() for alias in aliases for suffix in suffixes)
         overlap = sorted(triggers & rules.keys())
         if overlap:
-            raise ValueError(f"「{overlap[0]}」同时出现在多组里，请合并或修改。")
+            raise WordlistError("duplicate_trigger", term=overlap[0])
         rules.update(dict.fromkeys(triggers, query))
         # Older installations can still read and use the first suffix.
         group = {"aliases": aliases, "suffix": suffixes[0] if suffixes else "", "fuzzy": fuzzy}
