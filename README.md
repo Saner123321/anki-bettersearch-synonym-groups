@@ -5,12 +5,12 @@ An Anki Desktop companion add-on for finding the same concept under different na
 ## Install
 
 1. Install [BetterSearch](https://ankiweb.net/shared/info/1052724801) using add-on code `1052724801` and use its newer implementation.
-2. [Download the v0.1.2 preview package](https://raw.githubusercontent.com/Saner123321/anki-bettersearch-synonym-groups/v0.1.2/bettersearch_synonym_groups.ankiaddon). In Anki, choose **Tools → Add-ons → Install from file** and select the package.
+2. [Download the v0.1.3 preview package](https://raw.githubusercontent.com/Saner123321/anki-bettersearch-synonym-groups/v0.1.3/bettersearch_synonym_groups.ankiaddon). In Anki, choose **Tools → Add-ons → Install from file** and select the package.
 3. Restart Anki, then open **Browse → BetterSearch → Synonym Groups…** (同义词词表…).
 
 The interface follows Anki's language by default, using Simplified Chinese for Chinese locales and English otherwise. The **Language** (界面语言) selector changes the interface immediately and remembers your choice on this computer. The add-on has been tested on Windows with Anki 26.09.4.
 
-From v0.1.2 onward, **Check for updates** (检查更新) in the word-list window can install newer versions from this GitHub repository. Confirm the update when prompted, then restart Anki. On older versions, install v0.1.2 from the download link once to get the update button.
+From v0.1.2 onward, **Check for updates** (检查更新) in the word-list window can install newer versions from this GitHub repository. Confirm the update when prompted, then restart Anki. On older versions, install the current package from the download link once to get the update button.
 
 ## Use
 
