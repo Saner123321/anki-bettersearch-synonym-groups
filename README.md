@@ -1,0 +1,1 @@
+# anki-bettersearch-synonym-groups
