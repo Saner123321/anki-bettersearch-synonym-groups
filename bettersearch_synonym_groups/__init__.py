@@ -27,6 +27,7 @@ from . import highlights
 from .i18n import LANGUAGE_CHOICES, WordlistError, resolve_language, translate
 from .rules import ALIAS_SEPARATOR, build_rules, clean_term, group_rows, split_suffixes
 from .search import expand_search
+from .updater import PACKAGE, check_for_updates_from_dialog
 from .wordlist_sync import decode_groups, read_wordlist, wordlist_path, write_wordlist
 
 
@@ -304,6 +305,12 @@ def edit_groups(parent=None):
     actions.addWidget(remove)
     actions.addStretch()
 
+    update = QPushButton(dialog)
+    update.setAutoDefault(False)
+    actions.addWidget(update)
+    update.setVisible(__package__ == PACKAGE)
+    update.clicked.connect(lambda: check_for_updates_from_dialog(mw, dialog, update, tr))
+
     language_label = QLabel(dialog)
     language_choice = QComboBox(dialog)
     for code, label in LANGUAGE_CHOICES:
@@ -334,6 +341,7 @@ def edit_groups(parent=None):
         table.horizontalHeaderItem(1).setToolTip(tr("suffix_tip"))
         add.setText(tr("add"))
         remove.setText(tr("remove"))
+        update.setText(tr("update_check"))
         language_label.setText(tr("ui_language"))
         language_choice.setAccessibleName(tr("ui_language"))
         buttons.button(QDialogButtonBox.StandardButton.Save).setText(tr("save"))
