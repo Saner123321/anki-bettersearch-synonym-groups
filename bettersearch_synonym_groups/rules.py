@@ -24,12 +24,16 @@ def group_fuzzy_patterns(aliases):
     return list(dict.fromkeys(pattern for alias in aliases for pattern in fuzzy_patterns(alias)))
 
 
+def regex_query(patterns):
+    return '"re:(?:' + "|".join(patterns) + ')"'
+
+
 def build_query(aliases, fuzzy):
     terms = [f'"{alias}"' if " " in alias else alias for alias in aliases]
     if fuzzy:
         patterns = group_fuzzy_patterns(aliases)
         if patterns:
-            terms.append('"re:(?:' + "|".join(patterns) + ')"')
+            terms.append(regex_query(patterns))
     return "(" + " OR ".join(terms) + ")"
 
 

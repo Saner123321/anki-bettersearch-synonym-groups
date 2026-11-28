@@ -5,7 +5,7 @@ An Anki Desktop companion add-on for finding the same concept under different na
 ## Install
 
 1. Install [BetterSearch](https://ankiweb.net/shared/info/1052724801) using add-on code `1052724801` and use its newer implementation.
-2. [Download the v0.1.4 preview package](https://github.com/Saner123321/anki-bettersearch-synonym-groups/blob/v0.1.4/bettersearch_synonym_groups.ankiaddon). Use the download button on GitHub, then choose **Tools → Add-ons → Install from file** in Anki and select the package.
+2. [Download the v0.1.5 preview package](https://github.com/Saner123321/anki-bettersearch-synonym-groups/blob/v0.1.5/bettersearch_synonym_groups.ankiaddon). Use the download button on GitHub, then choose **Tools → Add-ons → Install from file** in Anki and select the package.
 3. Restart Anki, then open **Browse → BetterSearch → Synonym Groups…** (同义词词表…).
 
 The interface follows Anki's language by default, using Simplified Chinese for Chinese locales and English otherwise. The **Language** (界面语言) selector changes the interface immediately and remembers your choice on this computer. The add-on has been tested on Windows with Anki 26.09.4.
@@ -19,6 +19,7 @@ Since v0.1.4, the updater also checks GitHub's Contents API if the raw download 
 - Put each group on its own row. Separate equivalent terms with `/` in **Synonyms**.
 - Add endings in **Optional suffixes**, also separated by `/`. For example, aliases `约当 / 若当 / Jordan` with suffixes `块 / 型` can be found by entering `约当`, `约当块`, or `约当型`.
 - Search from the Browse box as usual, with filters such as `deck:LinearAlgebra 约当型`. The add-on expands the configured terms and supports highlighting the matching text in the editor.
+- Plain words and quoted phrases can match and highlight across inline formatting such as underlines, bold text, and color changes.
 - **Allow one typo** lets the search match one different Han character in aliases containing at least three Han characters.
 
 ## Share a word list between computers

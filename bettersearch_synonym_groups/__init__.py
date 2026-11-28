@@ -26,7 +26,7 @@ from aqt.utils import showWarning
 from . import highlights
 from .i18n import LANGUAGE_CHOICES, WordlistError, resolve_language, translate
 from .rules import ALIAS_SEPARATOR, build_rules, clean_term, group_rows, split_suffixes
-from .search import expand_search
+from .search import expand_inline_formatting, expand_search, inline_fuzzy_queries
 from .updater import PACKAGE, check_for_updates_from_dialog
 from .wordlist_sync import decode_groups, read_wordlist, wordlist_path, write_wordlist
 
@@ -35,6 +35,7 @@ BETTERSEARCH_MODULE = "1052724801.new.onTextChange"
 logger = logging.getLogger(__name__)
 rules = {}
 typing_prefixes = set()
+formatted_fuzzy_queries = {}
 
 
 class RuleFilter(QLineEdit):
@@ -54,7 +55,7 @@ def language_for(settings):
 
 
 def activate_groups(groups, replacement_rules):
-    global rules, typing_prefixes
+    global rules, typing_prefixes, formatted_fuzzy_queries
     rules = replacement_rules
     typing_prefixes = {
         term[:length]
@@ -62,6 +63,7 @@ def activate_groups(groups, replacement_rules):
         for length in range(1, len(term))
         if term[:length] in rules
     }
+    formatted_fuzzy_queries = inline_fuzzy_queries(groups)
     highlights.set_groups(groups)
 
 
@@ -87,7 +89,12 @@ def after_media_sync(running):
 
 
 def expand_browser_search(context):
-    context.search = expand_search(context.search, rules, highlights.queries)
+    expanded = expand_search(context.search, rules, highlights.queries)
+    context.search = expand_inline_formatting(expanded, formatted_fuzzy_queries)
+    if context.search != expanded:
+        if context.addon_metadata is None:
+            context.addon_metadata = {}
+        context.addon_metadata[__name__] = expanded
 
 
 def connect_to_bettersearch():
